@@ -1,0 +1,6 @@
+{
+  "HOME": "/home",
+  "WELCOME_FLOW": "/welcome",
+  "OPERATION_FLOW": "/operationflow/:idOperationFlow",
+  "LOADER": "/loader"
+}

@@ -14,7 +14,7 @@ import path from 'path';
 import { app, BrowserWindow } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
-import MenuBuilder from './menu';
+// import MenuBuilder from './menu';
 
 export default class AppUpdater {
   constructor() {
@@ -41,14 +41,11 @@ if (
 const installExtensions = async () => {
   const installer = require('electron-devtools-installer');
   const forceDownload = !!process.env.UPGRADE_EXTENSIONS;
-  const extensions = ['REACT_DEVELOPER_TOOLS', 'REDUX_DEVTOOLS'];
+  const extensions = [/* 'REACT_DEVELOPER_TOOLS' 'REDUX_DEVTOOLS' */];
 
-  return installer
-    .default(
-      extensions.map((name) => installer[name]),
-      forceDownload
-    )
-    .catch(console.log);
+  return Promise.all(
+    extensions.map((name) => installer.default(installer[name], forceDownload))
+  ).catch(console.log);
 };
 
 const createWindow = async () => {
@@ -78,12 +75,14 @@ const createWindow = async () => {
       process.env.ERB_SECURE !== 'true'
         ? {
             nodeIntegration: true,
+            devTools: true,
           }
         : {
             preload: path.join(__dirname, 'dist/renderer.prod.js'),
+            devTools: true,
           },
   });
-
+  mainWindow.setMenuBarVisibility(false);
   mainWindow.loadURL(`file://${__dirname}/app.html`);
 
   // @TODO: Use 'ready-to-show' event
@@ -103,9 +102,8 @@ const createWindow = async () => {
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
-
-  const menuBuilder = new MenuBuilder(mainWindow);
-  menuBuilder.buildMenu();
+  // const menuBuilder = new MenuBuilder(mainWindow);
+  // menuBuilder.buildMenu();
 
   // Remove this if your app does not use auto updates
   // eslint-disable-next-line
@@ -128,7 +126,14 @@ if (process.env.E2E_BUILD === 'true') {
   // eslint-disable-next-line promise/catch-or-return
   app.whenReady().then(createWindow);
 } else {
-  app.on('ready', createWindow);
+  app.on('ready', () => {
+    createWindow()
+      .then(() => {
+        BrowserWindow.removeDevToolsExtension('React Developer Tools');
+        return true;
+      })
+      .catch((err) => console.error(err));
+  });
 }
 
 app.on('activate', () => {

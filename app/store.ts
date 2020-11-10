@@ -1,47 +1,36 @@
-import { configureStore, getDefaultMiddleware, Action } from '@reduxjs/toolkit';
-import { createHashHistory } from 'history';
+import { configureStore, getDefaultMiddleware } from '@reduxjs/toolkit';
+import createSagaMiddleware from 'redux-saga';
+import { createBrowserHistory } from 'history';
 import { routerMiddleware } from 'connected-react-router';
-import { createLogger } from 'redux-logger';
-import { ThunkAction } from 'redux-thunk';
 // eslint-disable-next-line import/no-cycle
-import createRootReducer from './rootReducer';
+import rootSagas from './sagas/index';
+import createRootReducer from './reducers/index';
 
-export const history = createHashHistory();
+export const history = createBrowserHistory({
+  basename: '/',
+});
 const rootReducer = createRootReducer(history);
 export type RootState = ReturnType<typeof rootReducer>;
 
-const router = routerMiddleware(history);
-const middleware = [...getDefaultMiddleware(), router];
-
-const excludeLoggerEnvs = ['test', 'production'];
-const shouldIncludeLogger = !excludeLoggerEnvs.includes(
-  process.env.NODE_ENV || ''
-);
-
-if (shouldIncludeLogger) {
-  const logger = createLogger({
-    level: 'info',
-    collapsed: true,
-  });
-  middleware.push(logger);
-}
-
 export const configuredStore = (initialState?: RootState) => {
-  // Create Store
-  const store = configureStore({
+  const sagaMiddleware = createSagaMiddleware();
+  const router = routerMiddleware(history);
+  const middleware = [...getDefaultMiddleware(), router, sagaMiddleware];
+
+  const mystore = configureStore({
     reducer: rootReducer,
     middleware,
     preloadedState: initialState,
   });
 
+  sagaMiddleware.run(rootSagas);
+
   if (process.env.NODE_ENV === 'development' && module.hot) {
     module.hot.accept(
-      './rootReducer',
+      './reducers/index',
       // eslint-disable-next-line global-require
-      () => store.replaceReducer(require('./rootReducer').default)
+      () => mystore.replaceReducer(require('./reducers/index').default)
     );
   }
-  return store;
+  return mystore;
 };
-export type Store = ReturnType<typeof configuredStore>;
-export type AppThunk = ThunkAction<void, RootState, unknown, Action<string>>;
